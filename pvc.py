@@ -19,7 +19,8 @@ class PVC_Tester:
         self.timer_thread = None
         with open(self.txt_path, 'w') as f:
             f.write('vertices\tk\tepsilon\ttime(s)\ttype\tmax_w\tmax_v\n')
-    
+
+    #visulise the input graph
     def draw_input_graph(self, graph, weight, num):
         G = nx.Graph()
         n = len(graph)
@@ -39,7 +40,8 @@ class PVC_Tester:
         plt.savefig(os.path.join(self.file_path, f'graphs/InputSize{num}.jpg'))
         plt.close()
         return pos
-    
+        
+    #visulise the output graph
     def draw_output_graph(self, algorithm, graph, weight, num, k, max_vertices, max_weight, pos):
         G = nx.Graph()
         n = len(graph)
@@ -107,6 +109,7 @@ class PVC_Tester:
         except KeyboardInterrupt:
             print("STOP")
 
+    # creat graphs
     def generate_graph(self, num):
         graph = [[0]*num for _ in range(num)]
         weight = [[0]*num for _ in range(num)]
@@ -157,7 +160,7 @@ class PVC_Tester:
                 print(f"Testing with size {num} and k {k} using algorithm4")
                 self.test_algorithm(algorithm4, graph, weight, num, k, pos)
 
-
+    # make the structure clear
     def process_file(self):
         df = pd.read_csv(self.txt_path, sep='\t')
 
@@ -168,6 +171,7 @@ class PVC_Tester:
 
         df_sorted.to_csv(self.txt_path, sep='\t', index=False)
 
+    # draw size-time plots
     def k_plot_withPVC(self):
         df = pd.read_csv(self.txt_path, sep='\t')
 
@@ -218,6 +222,7 @@ class PVC_Tester:
             plt.savefig(output_file_path)
             plt.close()
 
+    # create tables for solutions
     def solution_csv(self):
 
         df = pd.read_csv(self.txt_path, delimiter='\t')
@@ -243,12 +248,15 @@ class PVC:
         max_vertex = 0
         max_vertices = []
 
+        # n' = min(k + {k / 𝜀}, n)
         n_prime = min(k + int(np.ceil(k / self.epsilon)), num_vertices)
 
+        # sort the vertices by weights
         vertices_weight = [sum(weight[i]) for i in range(num_vertices)]
         vertices_lst = list(range(num_vertices))
         vertices_lst.sort(key=lambda x: vertices_weight[x], reverse=True)
 
+        # select the first n' vertices to get Vn' 
         vn_prime = vertices_lst[:n_prime]
         k_vertices = list(itertools.combinations(vn_prime, k))
         for vertices in k_vertices:
