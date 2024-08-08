@@ -471,7 +471,7 @@ algorithm3 = C_PVC(epsilon=test_epsilon)
 algorithm4 = G_PVC(epsilon=test_epsilon)
 
 ## CHANGE THE FILE PATH
-tester = PVC_Tester(file_path='D:/Leeds/MSc_Project/code/average2/re1')
+tester = PVC_Tester(file_path='D:/Leeds/MSc_Project/code')
 graphs = tester.generate(test_size)
 
 tester.test_algorithm1(graphs, test_k, algorithm1)
