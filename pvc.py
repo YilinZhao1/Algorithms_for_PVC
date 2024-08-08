@@ -14,7 +14,6 @@ class PVC_Tester:
     def __init__(self, file_path=None):
         self.file_path = file_path
         self.txt_path = os.path.join(file_path, 'result.txt')
-        #self.process_txt_path = os.path.join(file_path, 'result_table.txt')
         self.stop_flag = False
         self.timer_thread = None
         with open(self.txt_path, 'w') as f:
@@ -74,6 +73,7 @@ class PVC_Tester:
             self.timer_thread.start()
             start_time = time.time()
 
+            # different algorithms
             if isinstance(algorithm, PVC):
                 max_vertices, max_weight = algorithm.maxk_vc(graph, weight, k)
             elif isinstance(algorithm, LP_PVC):
@@ -104,7 +104,8 @@ class PVC_Tester:
             with open(self.txt_path, 'a') as f:
                 f.write(f'{num}\t{k}\t{algorithm.epsilon}\t{execution_time}\t{type(algorithm).__name__}\t{max_weight}\t{list(max_vertices)}\n')
 
-            #self.draw_output_graph(algorithm, graph, weight, num, k, max_vertices, max_weight, pos)
+            #visulize output
+            self.draw_output_graph(algorithm, graph, weight, num, k, max_vertices, max_weight, pos)
 
         except KeyboardInterrupt:
             print("STOP")
@@ -163,7 +164,6 @@ class PVC_Tester:
     # make the structure clear
     def process_file(self):
         df = pd.read_csv(self.txt_path, sep='\t')
-
         #df = df.drop_duplicates(subset=['vertices', 'k', 'epsilon', 'type'])
 
         # sort
@@ -236,6 +236,8 @@ class PVC_Tester:
 
         df_pivot.to_csv(output_file_path, index=False)
 
+
+## Kernelization Algorithm
 class PVC:
     def __init__(self, epsilon=0):
         self.epsilon = epsilon
@@ -259,6 +261,8 @@ class PVC:
         # select the first n' vertices to get Vn' 
         vn_prime = vertices_lst[:n_prime]
         k_vertices = list(itertools.combinations(vn_prime, k))
+
+        #use brute force to select vertices
         for vertices in k_vertices:
             if self.stop_flag:
                 return max_vertices, max_weight
@@ -290,7 +294,8 @@ class PVC:
     def stop_program(self):
         self.stop_flag = True
         #print("Algorithm STOP")
-    
+
+## ILP Algorithm
 class LP_PVC:
     def __init__(self, epsilon=0):
         self.epsilon = epsilon
@@ -312,14 +317,12 @@ class LP_PVC:
         problem += pulp.lpSum([Y[i] for i in range(m)]) <= k
 
         # Constraint: edge coverage
-        #m
         for i in range(m):
             for j in range(i + 1, m):  # Avoid duplicate constraints
                 if graph[i][j] == 1:
                     problem += Z[i][j] <= Y[i] + Y[j]
                     problem += Z[i][j] <= 1
 
-        #mute
         problem.solve(pulp.PULP_CBC_CMD(msg=False))
         
         selected_vertices = [i for i in range(m) if pulp.value(Y[i]) == 1]
@@ -339,6 +342,7 @@ class C_PVC:
         self.epsilon = epsilon
         self.stop_flag = False
 
+    # caculate Vn'
     def calculate_vn_prime(self, graph, weight, k):
         num_vertices = len(graph)
         vertices_weight = [sum(weight[i]) for i in range(num_vertices)]
@@ -349,7 +353,7 @@ class C_PVC:
         vn_prime = vertices_lst[:n_prime]
         return vn_prime
 
-    # modify
+    # calcualte Q which for the edges which one endpoint in Vn' and another endpoint not
     def calculat_Q(self, graph, weight, vn_prime):
         num_vertices = len(graph)
         Q = [0] * len(vn_prime)
@@ -358,7 +362,7 @@ class C_PVC:
             Q[i] = sum(1 for j in range(num_vertices) if graph[v][j] == 1 and j not in vn_prime_set)
         return Q
     
-    # modify
+    # W' for edges that both endpoints in Vn'
     def create_weight_prime(self, graph, weight, vn_prime):
         n_prime = len(vn_prime)
         weight_prime = np.zeros((n_prime, n_prime))
@@ -368,7 +372,8 @@ class C_PVC:
                     #weight_prime[i][j] = weight[vn_prime[i]][vn_prime[j]]
                     weight_prime[i][j] = 1
         return weight_prime
-    
+
+    # solve as an ILP problem
     def maxk_vc_combine(self, graph, weight_prime, vn_prime, Q, k):
         problem = pulp.LpProblem("COMBINE_PVC", pulp.LpMaximize)
         
@@ -376,7 +381,6 @@ class C_PVC:
         Z = pulp.LpVariable.dicts("Z", (range(len(vn_prime)), range(len(vn_prime))), cat='Binary')
         
         # Objective: sum of weights of edges in vn_prime and Q values for selected vertices
-        
         objective = pulp.lpSum([weight_prime[i][j] * Z[i][j] for i in range(len(vn_prime)) 
                                     for j in range(i + 1, len(vn_prime)) if weight_prime[i][j] > 0]) + \
                     pulp.lpSum([Q[i] * Y[i] for i in range(len(vn_prime))])
@@ -392,8 +396,8 @@ class C_PVC:
                     problem += Z[i][j] <= Y[i] + Y[j]
                     problem += Z[i][j] <= 1
                     #problem += Z[i][j] >= Y[i] + Y[j] - 1
-        
-        #mute
+
+        # solve ILP
         problem.solve(pulp.PULP_CBC_CMD(msg=False))
 
         selected_vertices = [vn_prime[i] for i in range(len(vn_prime)) if pulp.value(Y[i]) == 1]
@@ -419,6 +423,7 @@ class G_PVC:
         max_weight = 0
         graph_copy = copy.deepcopy(graph)
 
+        #iterate k times, select the vertex with most degree each time
         for _ in range(k):
             '''
             if self.stop_flag:
@@ -445,7 +450,7 @@ class G_PVC:
                 graph_copy[best_vertex][i] = 0
                 graph_copy[i][best_vertex] = 0
 
-            max_weight += max_edges  # 每条边权重为1，直接加边数
+            max_weight += max_edges
 
         print('selected_vertices: ', selected_vertices)
         print('max_weight: ', max_weight)
@@ -456,7 +461,7 @@ class G_PVC:
         self.stop_flag = True
         print("10 minutes, STOP")
 
-
+## test inputs
 test_size = [i for i in range(20, 21)]
 test_k = [i for i in range(10, 11)]
 test_epsilon = 0.4
@@ -465,20 +470,17 @@ algorithm2 = LP_PVC(epsilon=test_epsilon)
 algorithm3 = C_PVC(epsilon=test_epsilon)
 algorithm4 = G_PVC(epsilon=test_epsilon)
 
+## CHANGE THE FILE PATH
 tester = PVC_Tester(file_path='D:/Leeds/MSc_Project/code/average2/re1')
 graphs = tester.generate(test_size)
 
-
-#tester.test_algorithm1(graphs, test_k, algorithm1)
-
+tester.test_algorithm1(graphs, test_k, algorithm1)
 tester.test_algorithm2(graphs, test_k, algorithm2)
 tester.test_algorithm3(graphs, test_k, algorithm3)
 tester.test_algorithm4(graphs, test_k, algorithm4)
 
 tester.process_file()
-
-#tester.k_plot_withPVC()
-
+tester.k_plot_withPVC()
 tester.k_plot_withoutPVC()
 tester.solution_csv()
 
